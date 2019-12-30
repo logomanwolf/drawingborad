@@ -81,6 +81,10 @@ li{list-style: none;}
     background-image: url('../image/redo.png'); 
     border-color: transparent;
 }
+.tools button.straight_line{
+ background-image: url('../image/line.png'); 
+ border-color: transparent;  
+}
 .tools button.active{
     border-radius: 5px;
     border-color: #1398E6;
