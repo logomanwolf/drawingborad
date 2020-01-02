@@ -330,6 +330,8 @@ function listenToUser() {
         rectStartPoint.x = x1;
         rectStartPoint.y = y1;
         dragging = true;
+        console.log("onmousedown");
+        console.log(rectStartPoint);
       } else {
         lastPoint = { x: x1, y: y1 };
       }
@@ -373,9 +375,13 @@ function listenToUser() {
           restoreDrawingSurface();
           updateRubberbandCircle({ x: x2, y: y2 });
         }
-      } else if (statusManager.textEnabled && dragging) {
-        restoreDrawingSurface();
-        updateRubberbandRectangleDashed({ x: x2, y: y2 });
+      } else if (statusManager.textEnabled) {
+        if (dragging) {
+          restoreDrawingSurface();
+          updateRubberbandRectangleDashed({ x: x2, y: y2 });
+          console.log("onmouseover");
+          console.log(rectStartPoint);
+        }
       } else {
         let newPoint = { x: x2, y: y2 };
         drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
@@ -385,16 +391,23 @@ function listenToUser() {
     // 鼠标松开事件
     canvas.onmouseup = e => {
       painting = false;
-      canvasDraw();
       if (statusManager.rectEnabled) {
+        canvasDraw();
         restoreDrawingSurface();
         updateRubberbandRectangle({ x: e.clientX, y: e.clientY });
       } else if (statusManager.circleEnabled) {
+        canvasDraw();
         restoreDrawingSurface();
         updateRubberbandCircle({ x: e.clientX, y: e.clientY });
       } else if (statusManager.textEnabled) {
-        restoreDrawingSurface();
+        // canvasDraw();
+        // restoreDrawingSurface();
         adjustTextArea({ x: e.clientX, y: e.clientY });
+        console.log("onmouseup");
+        console.log(rectStartPoint);
+      } else {
+        canvasDraw();
+        restoreDrawingSurface();
       }
       dragging = false;
     };
@@ -537,6 +550,14 @@ function setCanvasBg(color) {
   context.fillRect(0, 0, canvas.width, canvas.height);
 }
 
+function getMousePos(canvas, evt) {
+  var rect = canvas.getBoundingClientRect();
+  return {
+    x: evt.clientX - rect.left * (canvas.width / rect.width),
+    y: evt.clientY - rect.top * (canvas.height / rect.height)
+  };
+}
+
 // 下载图片
 save.onclick = function() {
   let imgUrl = canvas.toDataURL("image/png");
@@ -549,28 +570,30 @@ save.onclick = function() {
 };
 
 textArea.onblur = e => {
-  let rubberbandRect = {};
-  let loc = { x: e.clientX, y: e.clientY };
-  rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
-  rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
-  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
-  //因为从左往右拉的时候，左边x坐标不变
-  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
-  if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
-  else rubberbandRect.left = loc.x;
-  if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
-  else rubberbandRect.top = loc.y;
+  // let rubberbandRect = {};
+  // let loc = { x: e.clientX, y: e.clientY };
+  // rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
+  // rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
+  // //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  // //因为从左往右拉的时候，左边x坐标不变
+  // //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  // if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
+  // else rubberbandRect.left = loc.x;
+  // if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
+  // else rubberbandRect.top = loc.y;
   context.font = "20px Georgia";
   let textContent = textArea.value;
   context.save();
-  context.beginPath();
+  console.log(rectStartPoint);
+  console.log("textContent: " + textContent);
+  // context.beginPath();
   context.fillText(
     textContent,
     rectStartPoint.x,
     rectStartPoint.y
     // rubberbandRect.width
   );
-  context.restsore();
+  context.restore();
 };
 
 // 实现了切换背景颜色
