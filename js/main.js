@@ -1,9 +1,13 @@
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
 let eraser = document.getElementById("eraser");
+eraser.enabled = "eraserEnabled";
 let brush = document.getElementById("brush");
 let reSetCanvas = document.getElementById("clear");
 let save = document.getElementById("save");
+let textArea = document.getElementById("textArea");
+
+let drawingSurfaceImageData;
 /* let selectBg = document.querySelector('.bg-btn');
 let bgGroup = document.querySelector('.color-group');
 let bgcolorBtn = document.querySelectorAll('.bgcolor-item'); */
@@ -13,16 +17,55 @@ let undo = document.getElementById("undo");
 let redo = document.getElementById("redo");
 
 let straight_line = document.getElementById("straight_line");
+straight_line.enabled = "straightLineEnabled";
 let rect = document.getElementById("rect");
+rect.enabled = "rectEnabled";
+let circle = document.getElementById("circle");
+circle.enabled = "circleEnabled";
+let picture = document.getElementById("picture");
+picture.enabled = "pictureEnabled";
+let text = document.getElementById("text");
+text.enabled = "textEnabled";
 
 let range1 = document.getElementById("range1");
 let range2 = document.getElementById("range2");
 let showOpacity = document.querySelector(".showOpacity");
 let closeBtn = document.querySelectorAll(".closeBtn");
+let rectStartPoint = {};
+let circleStartPoint = {};
 
-let eraserEnabled = false;
+let statusManager = {};
+statusManager.eraserEnabled = false;
+statusManager.straightLineEnabled = false;
+statusManager.rectEnabled = false;
+statusManager.circleEnabled = false;
+statusManager.textEnabled = false;
+statusManager.pictureEnabled = false;
 
-let straightLineEnabled = false;
+//初始化所有的status为false
+let initStatusManager = () => {
+  for (let key in statusManager) statusManager[key] = false;
+};
+
+let wedgets = [straight_line, rect, eraser, circle, picture, text, brush];
+//将所有wedget的样式去除active
+let removeActive = () => {
+  wedgets.forEach(item => {
+    item.classList.remove("active");
+  });
+};
+
+function saveDrawingSurface() {
+  drawingSurfaceImageData = context.getImageData(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+}
+function restoreDrawingSurface() {
+  context.putImageData(drawingSurfaceImageData, 0, 0);
+}
 
 let activeBgColor = "#fff";
 let ifPop = false;
@@ -57,9 +100,112 @@ function autoSetSize() {
   };
 }
 
+function updateRubberbandRectangle(loc) {
+  let rubberbandRect = {};
+  rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
+  rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
+  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  //因为从左往右拉的时候，左边x坐标不变
+  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
+  else rubberbandRect.left = loc.x;
+  if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
+  else rubberbandRect.top = loc.y;
+  context.save();
+  context.beginPath();
+  context.rect(
+    rubberbandRect.left,
+    rubberbandRect.top,
+    rubberbandRect.width,
+    rubberbandRect.height
+  );
+  context.stroke();
+  context.restore();
+}
+
+function updateRubberbandCircle(loc) {
+  let rubberbandCircle = {};
+  rubberbandCircle.width = Math.abs(loc.x - circleStartPoint.x);
+  rubberbandCircle.height = Math.abs(loc.y - circleStartPoint.y);
+  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  //因为从左往右拉的时候，左边x坐标不变
+  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  if (loc.x > circleStartPoint.x) rubberbandCircle.left = circleStartPoint.x;
+  else rubberbandCircle.left = loc.x;
+  if (loc.y > circleStartPoint.y) rubberbandCircle.top = circleStartPoint.y;
+  else rubberbandCircle.top = loc.y;
+  context.save();
+  context.beginPath();
+  context.ellipse(
+    rubberbandCircle.left + rubberbandCircle.width / 2,
+    rubberbandCircle.top + rubberbandCircle.height / 2,
+    rubberbandCircle.width / 2,
+    rubberbandCircle.height / 2,
+    2 * Math.PI,
+    0,
+    2 * Math.PI
+  );
+  context.stroke();
+  context.restore();
+}
+
+function updateRubberbandRectangleDashed(loc) {
+  let rubberbandRect = {};
+  rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
+  rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
+  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  //因为从左往右拉的时候，左边x坐标不变
+  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
+  else rubberbandRect.left = loc.x;
+  if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
+  else rubberbandRect.top = loc.y;
+  context.save();
+  context.setLineDash([5, 15]);
+  context.beginPath();
+  context.rect(
+    rubberbandRect.left,
+    rubberbandRect.top,
+    rubberbandRect.width,
+    rubberbandRect.height
+  );
+  context.stroke();
+  context.restore();
+}
+
+let adjustTextArea = loc => {
+  let rubberbandRect = {};
+  rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
+  rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
+  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  //因为从左往右拉的时候，左边x坐标不变
+  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
+  else rubberbandRect.left = loc.x;
+  if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
+  else rubberbandRect.top = loc.y;
+  context.save();
+  context.setLineDash([5, 15]);
+  context.beginPath();
+  context.rect(
+    rubberbandRect.left,
+    rubberbandRect.top,
+    rubberbandRect.width,
+    rubberbandRect.height
+  );
+  textArea.style.width = rubberbandRect.width + "px";
+  textArea.style.height = rubberbandRect.height + "px";
+  textArea.style.left = rubberbandRect.left + "px";
+  textArea.style.top = rubberbandRect.top + "px";
+  // textArea.style.border = "#000";
+
+  context.stroke();
+  context.restore();
+};
+
 let straight_line_start = false;
-let straight_point_start = false;
-let straight_point_end = false;
+
+let straight;
 // 监听用户鼠标事件
 function listenToUser() {
   // 定义一个变量初始化画笔状态
@@ -74,7 +220,7 @@ function listenToUser() {
       painting = true;
       let x1 = e.touches[0].clientX;
       let y1 = e.touches[0].clientY;
-      if (eraserEnabled) {
+      if (statusManager.eraserEnabled) {
         //要使用eraser
         context.save();
         context.globalCompositeOperation = "destination-out";
@@ -85,7 +231,7 @@ function listenToUser() {
         context.clearRect(0, 0, canvas.width, canvas.height);
         context.restore();
         lastPoint = { x: x1, y: y1 };
-      } else if (straightLineEnabled) {
+      } else if (statusManager.straightLineEnabled) {
         context.arc(x1, y1, lWidth, 0, 2 * Math.PI);
         context.fillStyle = "#000000";
         context.fill();
@@ -102,12 +248,12 @@ function listenToUser() {
       if (!painting) {
         return;
       }
-      if (eraserEnabled) {
+      if (statusManager.eraserEnabled) {
         moveHandler(x1, y1, x2, y2);
         //记录最后坐标
         lastPoint["x"] = x2;
         lastPoint["y"] = y2;
-      } else if (straightLineEnabled) {
+      } else if (statusManager.straightLineEnabled) {
         let newPoint = { x: x2, y: y2 };
         drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
       } else {
@@ -123,12 +269,13 @@ function listenToUser() {
     };
   } else {
     // 鼠标按下事件
-    let straightLastPoint = { x: undefined, y: undefined };
+    // let straightLastPoint = { x: undefined, y: undefined };
+    let dragging = false;
     canvas.onmousedown = function(e) {
       painting = true;
       let x1 = e.clientX;
       let y1 = e.clientY;
-      if (eraserEnabled) {
+      if (statusManager.eraserEnabled) {
         //要使用eraser
         //鼠标第一次点下的时候擦除一个圆形区域，同时记录第一个坐标点
         context.save();
@@ -142,7 +289,7 @@ function listenToUser() {
         lastPoint = { x: x1, y: y1 };
       }
       //选择了“直线”按钮
-      else if (straightLineEnabled) {
+      else if (statusManager.straightLineEnabled) {
         //点是起点
         if (!straight_line_start) {
           context.beginPath();
@@ -165,6 +312,24 @@ function listenToUser() {
           straightLastPoint.x = undefined;
           straightLastPoint.y = undefined;
         }
+      } else if (statusManager.rectEnabled) {
+        // var loc = windowToCanvas(e.clientX, e.clientY);
+        // e.preventDefault();
+        saveDrawingSurface();
+        rectStartPoint.x = x1;
+        rectStartPoint.y = y1;
+        //判断是否可以被拖动
+        dragging = true;
+      } else if (statusManager.circleEnabled) {
+        saveDrawingSurface();
+        circleStartPoint.x = x1;
+        circleStartPoint.y = y1;
+        dragging = true;
+      } else if (statusManager.textEnabled) {
+        saveDrawingSurface();
+        rectStartPoint.x = x1;
+        rectStartPoint.y = y1;
+        dragging = true;
       } else {
         lastPoint = { x: x1, y: y1 };
       }
@@ -179,7 +344,7 @@ function listenToUser() {
       if (!painting) {
         return;
       }
-      if (eraserEnabled) {
+      if (statusManager.eraserEnabled) {
         moveHandler(x1, y1, x2, y2);
         //记录最后坐标
         lastPoint["x"] = x2;
@@ -198,17 +363,40 @@ function listenToUser() {
       //     context.stroke();
       //   }
       // }
-      else {
+      else if (statusManager.rectEnabled) {
+        if (dragging) {
+          restoreDrawingSurface();
+          updateRubberbandRectangle({ x: x2, y: y2 });
+        }
+      } else if (statusManager.circleEnabled) {
+        if (dragging) {
+          restoreDrawingSurface();
+          updateRubberbandCircle({ x: x2, y: y2 });
+        }
+      } else if (statusManager.textEnabled && dragging) {
+        restoreDrawingSurface();
+        updateRubberbandRectangleDashed({ x: x2, y: y2 });
+      } else {
         let newPoint = { x: x2, y: y2 };
         drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
         lastPoint = newPoint;
       }
     };
-
     // 鼠标松开事件
-    canvas.onmouseup = function() {
+    canvas.onmouseup = e => {
       painting = false;
       canvasDraw();
+      if (statusManager.rectEnabled) {
+        restoreDrawingSurface();
+        updateRubberbandRectangle({ x: e.clientX, y: e.clientY });
+      } else if (statusManager.circleEnabled) {
+        restoreDrawingSurface();
+        updateRubberbandCircle({ x: e.clientX, y: e.clientY });
+      } else if (statusManager.textEnabled) {
+        restoreDrawingSurface();
+        adjustTextArea({ x: e.clientX, y: e.clientY });
+      }
+      dragging = false;
     };
   }
 }
@@ -267,7 +455,7 @@ function drawLine(x1, y1, x2, y2) {
 
 // 点击橡皮檫
 eraser.onclick = function() {
-  eraserEnabled = true;
+  statusManager.eraserEnabled = true;
   eraser.classList.add("active");
   brush.classList.remove("active");
   straight_line.classList.remove("active");
@@ -277,37 +465,63 @@ eraser.onclick = function() {
   }
 };
 // 点击画笔
-brush.onclick = function() {
-  eraserEnabled = false;
-  straightLineEnabled = false;
-  brush.classList.add("active");
-  eraser.classList.remove("active");
-  straight_line.classList.remove("active");
-  if (!ifPop) {
-    // 弹出框
-    penDetail.classList.add("active");
-  } else {
-    penDetail.classList.remove("active");
-  }
-  ifPop = !ifPop;
-};
+// brush.onclick = function() {
+//   statusManager.eraserEnabled = false;
+//   statusManager.straightLineEnabled = false;
+//   brush.classList.add("active");
+//   eraser.classList.remove("active");
+//   straight_line.classList.remove("active");
+//   if (!ifPop) {
+//     // 弹出框
+//     penDetail.classList.add("active");
+//   } else {
+//     penDetail.classList.remove("active");
+//   }
+//   ifPop = !ifPop;
+// };
 
 //点击直线
-straight_line.onclick = () => {
-  eraserEnabled = false;
-  straightLineEnabled = true;
-  straight_line.classList.add("active");
-  brush.classList.remove("active");
-  eraser.classList.remove("active");
-  if (!ifPop) {
-    // 弹出框
-    penDetail.classList.add("active");
-  } else {
-    penDetail.classList.remove("active");
-  }
-  ifPop = !ifPop;
-};
+// straight_line.onclick = () => {
+//   initStatusManager();
+//   removeActive();
+//   straight_line.classList.add("active");
+//   statusManager.rectEnabled = true;
+//   if (!ifPop) {
+//     // 弹出框
+//     penDetail.classList.add("active");
+//   } else {
+//     penDetail.classList.remove("active");
+//   }
+//   ifPop = !ifPop;
+// };
 
+//点击矩形
+let plain_wedget = [brush, rect, circle, straight_line];
+plain_wedget.forEach(item => {
+  item.onclick = () => {
+    initStatusManager();
+    statusManager[item.enabled] = true;
+    removeActive();
+    item.classList.add("active");
+    if (!ifPop) {
+      // 弹出框
+      penDetail.classList.add("active");
+    } else {
+      penDetail.classList.remove("active");
+    }
+    ifPop = !ifPop;
+  };
+});
+//为文本和图片添加点击事件
+let special_wedget = [text, picture];
+special_wedget.forEach(item => {
+  item.onclick = () => {
+    initStatusManager();
+    statusManager[item.enabled] = true;
+    removeActive();
+    item.classList.add("active");
+  };
+});
 // 实现清屏
 reSetCanvas.onclick = function() {
   context.clearRect(0, 0, canvas.width, canvas.height);
@@ -332,6 +546,31 @@ save.onclick = function() {
   saveA.download = "mypic" + new Date().getTime();
   saveA.target = "_blank";
   saveA.click();
+};
+
+textArea.onblur = e => {
+  let rubberbandRect = {};
+  let loc = { x: e.clientX, y: e.clientY };
+  rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
+  rubberbandRect.height = Math.abs(loc.y - rectStartPoint.y);
+  //从左往右拉，和从右往左拉的两种情况。主要是判断左边的位置
+  //因为从左往右拉的时候，左边x坐标不变
+  //从右往左拉的时候，左边线的x坐标需要跟着鼠标移动
+  if (loc.x > rectStartPoint.x) rubberbandRect.left = rectStartPoint.x;
+  else rubberbandRect.left = loc.x;
+  if (loc.y > rectStartPoint.y) rubberbandRect.top = rectStartPoint.y;
+  else rubberbandRect.top = loc.y;
+  context.font = "20px Georgia";
+  let textContent = textArea.value;
+  context.save();
+  context.beginPath();
+  context.fillText(
+    textContent,
+    rectStartPoint.x,
+    rectStartPoint.y
+    // rubberbandRect.width
+  );
+  context.restsore();
 };
 
 // 实现了切换背景颜色
@@ -438,24 +677,6 @@ function canvasRedo() {
     alert("已经是最新的记录了");
   }
 }
-
-straightLineDraw = ({ x, y }) => {
-  if (straight_line_start) {
-    straight_point_end.x = x;
-    straight_point_end.y = y;
-    drawLine(
-      straight_point_start.x,
-      straight_point_start.y,
-      straight_point_end.x,
-      straight_point_end.y
-    );
-    straight_point_start = false;
-  } else {
-    straight_line_start = true;
-    straight_point_start.x = x;
-    straight_point_start.y = y;
-  }
-};
 
 undo.onclick = function() {
   canvasUndo();
