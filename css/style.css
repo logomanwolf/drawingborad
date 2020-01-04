@@ -109,14 +109,29 @@ li {
   background-image: url("../image/text.png");
   border-color: transparent;
 }
-.tools button.picture {
-  background-image: url("../image/picture.png");
+.tools button.overturn {
+  background-image: url("../image/overturn.png");
   border-color: transparent;
 }
 
+.tools .picture {
+  /* background-image: url("../image/picture.png");  */
+  border-color: transparent;
+  display: inline-block;
+  cursor: pointer;
+}
+#img-upload {
+  display: none;
+}
 .tools button.active {
   border-radius: 5px;
   border-color: #1398e6;
+}
+
+.tools div.active {
+  border-radius: 5px;
+  border-color: #1398e6;
+  border-style: solid;
 }
 
 .color-group {
@@ -326,8 +341,8 @@ canvas {
 .text-area {
   position: absolute;
   resize: none;
-  width: 100px;
-  height: 100px;
+  width: 0px;
+  height: 0px;
   background: #ff4081;
   vertical-align: text-bottom;
 }

@@ -32,7 +32,7 @@
     <div class="tools">
       <div class="container">
         <button class="save" id="save" title="保存"></button>
-        <button class="brush active" id="brush" title="画笔"></button>
+        <button class="brush" id="brush" title="画笔"></button>
         <button class="eraser" id="eraser" title="橡皮擦"></button>
         <button class="clear" id="clear" title="清屏"></button>
         <button class="undo" id="undo" title="撤销"></button>
@@ -41,7 +41,11 @@
         <button class="rect" id="rect" title="矩形工具"></button>
         <button class="circle" id="circle" title="圆形工具"></button>
         <button class="text" id="text" title="文本工具"></button>
-        <button class="picture" id="picture" title="图片工具"></button>
+        <div class="picture" id="picture" title="图片工具">
+          <img src="./image/picture.png" width="24px" height="24px" />
+          <input type="file" id="img-upload" />
+        </div>
+        <button class="overturn" id="overturn" title="翻转"></button>
       </div>
     </div>
     <div class="pen-detail" id="penDetail">
@@ -70,7 +74,7 @@
       <input type="range" id="range2" min="1" max="10" value="1" />
     </div>
     <div>
-      <textarea class="text-area"  id="textArea"></textarea>
+      <textarea class="text-area" id="textArea"></textarea>
     </div>
     <div class="picture-file" id="pictureFile"></div>
     <script src="./js/main.js"></script>

@@ -3,6 +3,7 @@ let context = canvas.getContext("2d");
 let eraser = document.getElementById("eraser");
 eraser.enabled = "eraserEnabled";
 let brush = document.getElementById("brush");
+brush.enabled = "brushEnabled";
 let reSetCanvas = document.getElementById("clear");
 let save = document.getElementById("save");
 let textArea = document.getElementById("textArea");
@@ -26,28 +27,36 @@ let picture = document.getElementById("picture");
 picture.enabled = "pictureEnabled";
 let text = document.getElementById("text");
 text.enabled = "textEnabled";
+let overturn = document.getElementById("overturn");
+overturn.enabled = "overturnEnabled";
 
 let range1 = document.getElementById("range1");
 let range2 = document.getElementById("range2");
 let showOpacity = document.querySelector(".showOpacity");
 let closeBtn = document.querySelectorAll(".closeBtn");
+let straightStartPoint = {};
 let rectStartPoint = {};
 let circleStartPoint = {};
 
+//状态控制管理
 let statusManager = {};
+statusManager.brushEnabled = false;
 statusManager.eraserEnabled = false;
 statusManager.straightLineEnabled = false;
 statusManager.rectEnabled = false;
 statusManager.circleEnabled = false;
 statusManager.textEnabled = false;
 statusManager.pictureEnabled = false;
+statusManager.overturnEnabled = false;
 
 //初始化所有的status为false
 let initStatusManager = () => {
   for (let key in statusManager) statusManager[key] = false;
 };
 
+//所有的控制组件
 let wedgets = [straight_line, rect, eraser, circle, picture, text, brush];
+
 //将所有wedget的样式去除active
 let removeActive = () => {
   wedgets.forEach(item => {
@@ -55,6 +64,7 @@ let removeActive = () => {
   });
 };
 
+//保存当前的画板信息
 function saveDrawingSurface() {
   drawingSurfaceImageData = context.getImageData(
     0,
@@ -62,9 +72,13 @@ function saveDrawingSurface() {
     canvas.width,
     canvas.height
   );
+  console.log("saveDrawingSurface");
 }
+
+//恢复之前保存的画布信息
 function restoreDrawingSurface() {
   context.putImageData(drawingSurfaceImageData, 0, 0);
+  console.log("restoreDrawingSurface");
 }
 
 let activeBgColor = "#fff";
@@ -100,6 +114,16 @@ function autoSetSize() {
   };
 }
 
+let updateRubberbandStraightLine = loc => {
+  context.save();
+  context.beginPath();
+  context.moveTo(straightStartPoint.x, straightStartPoint.y);
+  context.lineTo(loc.x, loc.y);
+  context.stroke();
+  context.restore();
+};
+
+//绘制矩形
 function updateRubberbandRectangle(loc) {
   let rubberbandRect = {};
   rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
@@ -123,6 +147,7 @@ function updateRubberbandRectangle(loc) {
   context.restore();
 }
 
+//绘制圆形
 function updateRubberbandCircle(loc) {
   let rubberbandCircle = {};
   rubberbandCircle.width = Math.abs(loc.x - circleStartPoint.x);
@@ -149,6 +174,7 @@ function updateRubberbandCircle(loc) {
   context.restore();
 }
 
+//绘制文字框
 function updateRubberbandRectangleDashed(loc) {
   let rubberbandRect = {};
   rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
@@ -173,6 +199,7 @@ function updateRubberbandRectangleDashed(loc) {
   context.restore();
 }
 
+//onmouseup时调用的调整textarea的函数
 let adjustTextArea = loc => {
   let rubberbandRect = {};
   rubberbandRect.width = Math.abs(loc.x - rectStartPoint.x);
@@ -213,7 +240,6 @@ function listenToUser() {
   // 记录画笔最后一次的位置
   let lastPoint = { x: undefined, y: undefined };
 
-  let straightLastPoint = { x: undefined, y: undefined };
   //移动端用的是ontouchstart
   if (document.body.ontouchstart !== undefined) {
     canvas.ontouchstart = function(ex) {
@@ -238,6 +264,7 @@ function listenToUser() {
         lastPoint = { x: x1, y: y1 };
       } else {
         lastPoint = { x: x1, y: y1 };
+        console.log("Mouse down!");
       }
     };
     canvas.ontouchmove = function(e) {
@@ -260,6 +287,7 @@ function listenToUser() {
         let newPoint = { x: x2, y: y2 };
         drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
         lastPoint = newPoint;
+        console.log("Mouse move!");
       }
     };
 
@@ -271,6 +299,7 @@ function listenToUser() {
     // 鼠标按下事件
     // let straightLastPoint = { x: undefined, y: undefined };
     let dragging = false;
+    let textfinished = false;
     canvas.onmousedown = function(e) {
       painting = true;
       let x1 = e.clientX;
@@ -291,27 +320,11 @@ function listenToUser() {
       //选择了“直线”按钮
       else if (statusManager.straightLineEnabled) {
         //点是起点
-        if (!straight_line_start) {
-          context.beginPath();
-          context.arc(x1, y1, lWidth, 0, 2 * Math.PI);
-          context.fillStyle = "#000000";
-          context.fill();
-          straight_line_start = true;
-          straightLastPoint = { x: x1, y: y1 };
-        }
-        //点是终点
-        else {
-          // context.save();
-          context.beginPath();
-          context.lineWidth = lWidth;
-          context.moveTo(straightLastPoint.x, straightLastPoint.y);
-          context.lineTo(x1, y1);
-          context.stroke();
-          // context.
-          straight_line_start = false;
-          straightLastPoint.x = undefined;
-          straightLastPoint.y = undefined;
-        }
+        saveDrawingSurface();
+        straightStartPoint.x = x1;
+        straightStartPoint.y = y1;
+        //判断是否可以被拖动
+        dragging = true;
       } else if (statusManager.rectEnabled) {
         // var loc = windowToCanvas(e.clientX, e.clientY);
         // e.preventDefault();
@@ -326,14 +339,17 @@ function listenToUser() {
         circleStartPoint.y = y1;
         dragging = true;
       } else if (statusManager.textEnabled) {
-        saveDrawingSurface();
-        rectStartPoint.x = x1;
-        rectStartPoint.y = y1;
-        dragging = true;
-        console.log("onmousedown");
-        console.log(rectStartPoint);
+        if (!textfinished) {
+          saveDrawingSurface();
+          rectStartPoint.x = x1;
+          rectStartPoint.y = y1;
+          dragging = true;
+          console.log("onmousedown");
+          console.log(rectStartPoint);
+        }
       } else {
         lastPoint = { x: x1, y: y1 };
+        console.log("Mouse down!");
       }
     };
 
@@ -353,19 +369,12 @@ function listenToUser() {
         lastPoint["y"] = y2;
       }
       //选择的是“直线”按钮
-      // else if (straightLineEnabled) {
-      //   // context.clearRect(x1, y1, x2 - x1, y2 - y1);
-      //   // setCanvasBg("white");
-      //   // let newPoint = { x: x2, y: y2 };
-      //   //移动的点是终点
-      //   if (straight_line_start) {
-      //     context.restore();
-      //     context.moveTo(straightLastPoint.x, straightLastPoint.y);
-      //     context.lineTo(x2, y2);
-      //     context.stroke();
-      //   }
-      // }
-      else if (statusManager.rectEnabled) {
+      else if (statusManager.straightLineEnabled) {
+        if (dragging) {
+          restoreDrawingSurface();
+          updateRubberbandStraightLine({ x: x2, y: y2 });
+        }
+      } else if (statusManager.rectEnabled) {
         if (dragging) {
           restoreDrawingSurface();
           updateRubberbandRectangle({ x: x2, y: y2 });
@@ -382,10 +391,11 @@ function listenToUser() {
           console.log("onmouseover");
           console.log(rectStartPoint);
         }
-      } else {
+      } else if (statusManager.brushEnabled) {
         let newPoint = { x: x2, y: y2 };
         drawLine(lastPoint.x, lastPoint.y, newPoint.x, newPoint.y);
         lastPoint = newPoint;
+        console.log("Mouse move!");
       }
     };
     // 鼠标松开事件
@@ -395,26 +405,31 @@ function listenToUser() {
         canvasDraw();
         restoreDrawingSurface();
         updateRubberbandRectangle({ x: e.clientX, y: e.clientY });
+      } else if (statusManager.straightLineEnabled) {
+        canvasDraw();
+        restoreDrawingSurface();
+        updateRubberbandStraightLine({ x: e.clientX, y: e.clientY });
       } else if (statusManager.circleEnabled) {
         canvasDraw();
         restoreDrawingSurface();
         updateRubberbandCircle({ x: e.clientX, y: e.clientY });
       } else if (statusManager.textEnabled) {
-        // canvasDraw();
+        canvasDraw();
         // restoreDrawingSurface();
         adjustTextArea({ x: e.clientX, y: e.clientY });
         console.log("onmouseup");
         console.log(rectStartPoint);
-      } else {
+      } else if (statusManager.brushEnabled) {
         canvasDraw();
-        restoreDrawingSurface();
+        // restoreDrawingSurface();
+        console.log("Mouse up!");
       }
       dragging = false;
+      textfinished = true;
     };
   }
 }
 
-//
 function moveHandler(x1, y1, x2, y2) {
   //获取两个点之间的剪辑区域四个端点
   var asin = radius * Math.sin(Math.atan((y2 - y1) / (x2 - x1)));
@@ -526,7 +541,7 @@ plain_wedget.forEach(item => {
   };
 });
 //为文本和图片添加点击事件
-let special_wedget = [text, picture];
+let special_wedget = [text, picture, overturn];
 special_wedget.forEach(item => {
   item.onclick = () => {
     initStatusManager();
@@ -583,16 +598,61 @@ textArea.onblur = e => {
   // else rubberbandRect.top = loc.y;
   context.font = "20px Georgia";
   let textContent = textArea.value;
-  context.save();
-  console.log(rectStartPoint);
+  // context.save();
   console.log("textContent: " + textContent);
-  // context.beginPath();
+  console.log(rectStartPoint);
+  context.beginPath();
   context.fillText(
     textContent,
     rectStartPoint.x,
     rectStartPoint.y
     // rubberbandRect.width
   );
+  // textfinished = true;
+  // context.restore();
+};
+
+let drawToCanvas = result => {
+  let beauty = new Image();
+  beauty.src = result;
+  beauty.onload = function() {
+    context.drawImage(beauty, 0, 0);
+    strDataURI = canvas.toDataURL();
+  };
+};
+
+function readFile() {
+  var file = this.files[0]; //获取input输入的图片
+  if (!/image\/\w+/.test(file.type)) {
+    alert("请确保文件为图像类型");
+    return false;
+  } //判断是否图片，在移动端由于浏览器对调用file类型处理不同，虽然加了accept = 'image/*'，但是还要再次判断
+  var reader = new FileReader();
+  reader.readAsDataURL(file); //转化成base64数据类型
+  reader.onload = function(e) {
+    drawToCanvas(this.result);
+  };
+}
+
+picture.onclick = e => {
+  initStatusManager();
+  statusManager["pictureEnabled"] = true;
+  removeActive();
+  picture.classList.add("active");
+  let imgUpload = document.getElementById("img-upload");
+  imgUpload.addEventListener("change", readFile, false);
+  imgUpload.click();
+};
+
+//toDo:修改实现翻转效果
+overturn.onclick = e => {
+  context.save(); //保存状态
+  saveDrawingSurface();
+  context.translate(canvas.width / 2, 0); //设置画布上的(0,0)位置，也就是旋转的中心点
+  context.scale(-1, 1);
+  context.translate(-canvas.width / 2, 0);
+  context.putImageData(drawingSurfaceImageData, 0, 0);
+  // context.scale(1, -1);
   context.restore();
 };
 
@@ -716,5 +776,6 @@ for (let index = 0; index < closeBtn.length; index++) {
 }
 
 window.onbeforeunload = function() {
+  console.log("onbeforeunload");
   return "Reload site?";
 };
