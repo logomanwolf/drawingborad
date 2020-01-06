@@ -299,7 +299,6 @@ function listenToUser() {
     // 鼠标按下事件
     // let straightLastPoint = { x: undefined, y: undefined };
     let dragging = false;
-    let textfinished = false;
     canvas.onmousedown = function(e) {
       painting = true;
       let x1 = e.clientX;
@@ -339,14 +338,12 @@ function listenToUser() {
         circleStartPoint.y = y1;
         dragging = true;
       } else if (statusManager.textEnabled) {
-        if (!textfinished) {
-          saveDrawingSurface();
-          rectStartPoint.x = x1;
-          rectStartPoint.y = y1;
-          dragging = true;
-          console.log("onmousedown");
-          console.log(rectStartPoint);
-        }
+        saveDrawingSurface();
+        rectStartPoint.x = x1;
+        rectStartPoint.y = y1;
+        dragging = true;
+        console.log("onmousedown");
+        console.log(rectStartPoint);
       } else {
         lastPoint = { x: x1, y: y1 };
         console.log("Mouse down!");
@@ -415,7 +412,7 @@ function listenToUser() {
         updateRubberbandCircle({ x: e.clientX, y: e.clientY });
       } else if (statusManager.textEnabled) {
         canvasDraw();
-        // restoreDrawingSurface();
+        restoreDrawingSurface();
         adjustTextArea({ x: e.clientX, y: e.clientY });
         console.log("onmouseup");
         console.log(rectStartPoint);
@@ -425,7 +422,6 @@ function listenToUser() {
         console.log("Mouse up!");
       }
       dragging = false;
-      textfinished = true;
     };
   }
 }
@@ -583,6 +579,14 @@ save.onclick = function() {
   saveA.target = "_blank";
   saveA.click();
 };
+let textFill = ({ textContent, rectStartPoint }) => {
+  context.fillText(
+    textContent,
+    rectStartPoint.x,
+    rectStartPoint.y
+    // rubberbandRect.width
+  );
+};
 
 textArea.onblur = e => {
   // let rubberbandRect = {};
@@ -599,16 +603,19 @@ textArea.onblur = e => {
   context.font = "20px Georgia";
   let textContent = textArea.value;
   // context.save();
-  console.log("textContent: " + textContent);
-  console.log(rectStartPoint);
+  console.log("textContent before" + context);
+  // console.log(rectStartPoint);
   context.beginPath();
-  context.fillText(
-    textContent,
-    rectStartPoint.x,
-    rectStartPoint.y
-    // rubberbandRect.width
-  );
-  // textfinished = true;
+  // context.fillText(
+  //   textContent,
+  //   rectStartPoint.x,
+  //   rectStartPoint.y
+  //   // rubberbandRect.width
+  // );
+  textFill(textContent,rectStartPoint)
+  console.log("textContent after: ", context);
+  // console.log(rectStartPoint);
+  saveDrawingSurface();
   // context.restore();
 };
 
